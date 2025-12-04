@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Gas Law Simulator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Chart.js for plotting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Set default font to Inter -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto bg-white p-6 md:p-10 rounded-xl shadow-2xl">
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Real Gas Law Simulator</h1>
+        <p class="text-gray-600 mb-6">Compare the Ideal Gas Law (PV=nRT) vs. the Van der Waals Equation. All calculations use R = 0.08206 L.atm.K^-1.mol^-1.</p>
+        
+        <!-- Input and Output Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <!-- Inputs -->
+            <div class="lg:col-span-1 p-6 bg-blue-50 rounded-lg shadow-inner">
+                <h2 class="text-xl font-bold text-blue-800 mb-4">Input Parameters</h2>
+                
+                <!-- Input Fields -->
+                <div id="input-fields" class="space-y-4">
+                    <!-- Moles (n) -->
+                    <div>
+                        <label for="n" class="block text-sm font-medium text-gray-700">Moles (n) [mol]</label>
+                        <input type="number" id="n" value="1.0" min="0.1" step="0.1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <!-- Temperature (T) -->
+                    <div>
+                        <label for="T" class="block text-sm font-medium text-gray-700">Temperature (T) [K]</label>
+                        <input type="number" id="T" value="300" min="1" step="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <!-- Volume (V) -->
+                    <div>
+                        <label for="V" class="block text-sm font-medium text-gray-700">Volume (V) [L]</label>
+                        <input type="number" id="V" value="24.4" min="0.01" step="0.1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <!-- VDW Constant a -->
+                    <div>
+                        <label for="a" class="block text-sm font-medium text-gray-700">Van der Waals a [(atm L)^2 (mol)^-2]</label>
+                        <input type="number" id="a" value="1.36" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500">
+                        <p class="text-xs text-gray-500 mt-1">(a for Oxygen, O2)</p>
+                    </div>
+                    <!-- VDW Constant b -->
+                    <div>
+                        <label for="b" class="block text-sm font-medium text-gray-700">Van der Waals b [(L mol)^-1]</label>
+                        <input type="number" id="b" value="0.0318" min="0" step="0.0001" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500">
+                        <p class="text-xs text-gray-500 mt-1">(b for Oxygen, O2)</p>
+                    </div>
+                </div>
+
+                <button id="calculate-btn" onclick="runSimulation()" class="w-full mt-6 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-150 ease-in-out">
+                    Run Simulation & Plot
+                </button>
+            </div>
+
+            <!-- Outputs -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Pressure Calculation Output -->
+                <div class="p-6 bg-gray-50 rounded-lg shadow-inner">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Pressure Calculation (P)</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-green-100 p-4 rounded-lg">
+                            <h3 class="font-semibold text-lg text-green-700">Ideal Gas Pressure P(ideal)</h3>
+                            <p id="p-ideal" class="text-3xl font-extrabold text-green-900 mt-1">--</p>
+                            <p class="text-sm text-green-800">atm</p>
+                        </div>
+                        <div class="bg-red-100 p-4 rounded-lg">
+                            <h3 class="font-semibold text-lg text-red-700">Real Gas Pressure P(real)</h3>
+                            <p id="p-real" class="text-3xl font-extrabold text-red-900 mt-1">--</p>
+                            <p class="text-sm text-red-800">atm</p>
+                        </div>
+                    </div>
+                    <div id="error-message" class="mt-4 p-3 bg-red-50 text-red-700 rounded-md hidden"></div>
+                </div>
+
+                <!-- Visualization Explanation -->
+                <div class="p-6 bg-purple-50 rounded-lg shadow-inner">
+                    <h2 class="text-xl font-bold text-purple-800 mb-4">Compressibility Factor (Z)</h2>
+                    <p class="text-gray-600">The plot below compares the Compressibility Factor (Z = PV/nRT) vs. Pressure.</p>
+                    <ul class="list-disc list-inside mt-2 text-sm space-y-1">
+                        <li>The <span class="text-green-600 font-semibold">Ideal Gas line is always Z=1</span>.</li>
+                        <li>Z &lt; 1: Attractive forces (<span class="text-red-600 font-semibold">a</span> term) dominate.</li>
+                        <li>Z &gt; 1: Repulsive forces (<span class="text-red-600 font-semibold">b</span> term) dominate.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Plot Section -->
+        <div class="bg-gray-100 p-6 rounded-xl shadow-lg mt-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Z vs. P Plot (Compressibility)</h2>
+            <div class="relative h-[400px]">
+                <canvas id="compressibilityChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        // --- Firebase Initialization (Required for Environment) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        setLogLevel('debug'); // Enable detailed Firestore logging
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let app, db, auth;
+
+        // Ensure firebaseConfig is available
+        let firebaseConfig = {};
+        try {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                firebaseConfig = JSON.parse(__firebase_config);
+            }
+        } catch (e) {
+            console.error("Failed to parse firebase config:", e);
+        }
+
+        // Initialize Firebase services
+        if (Object.keys(firebaseConfig).length > 0) {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            // Handle authentication
+            const initializeAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined') {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                        console.log("Firebase signed in with custom token.");
+                    } else {
+                        await signInAnonymously(auth);
+                        console.log("Firebase signed in anonymously.");
+                    }
+                } catch (error) {
+                    console.error("Firebase authentication error:", error);
+                }
+            };
+            initializeAuth();
+        } else {
+            console.warn("Firebase configuration is missing or empty.");
+        }
+        // -----------------------------------------------------------
+
+
+        // CONSTANTS
+        // R (Ideal Gas Constant) in L·atm/(mol·K)
+        const R = 0.08206; 
+        
+        // Chart.js instance variable
+        let compressibilityChart;
+        
+        /**
+         * Calculates the pressure of a real gas using the Van der Waals equation.
+         * P = (nRT / (V - nb)) - a * (n/V)^2
+         * @param {number} n Moles
+         * @param {number} T Temperature (K)
+         * @param {number} V Volume (L)
+         * @param {number} a VDW constant 'a'
+         * @param {number} b VDW constant 'b'
+         * @returns {number} Real Gas Pressure (atm)
+         */
+        function calculateRealPressure(n, T, V, a, b) {
+            // Repulsive term: nRT / (V - nb)
+            const repulsiveTerm = (n * R * T) / (V - n * b);
+            
+            // Attractive term: a * (n/V)^2
+            const attractiveTerm = a * Math.pow((n / V), 2);
+            
+            return repulsiveTerm - attractiveTerm;
+        }
+
+        /**
+         * Calculates the pressure of an ideal gas.
+         * P = nRT / V
+         * @param {number} n Moles
+         * @param {number} T Temperature (K)
+         * @param {number} V Volume (L)
+         * @returns {number} Ideal Gas Pressure (atm)
+         */
+        function calculateIdealPressure(n, T, V) {
+            return (n * R * T) / V;
+        }
+        
+        /**
+         * Generates the data points for the Z vs P plot by iterating over Volume (V).
+         * @param {number} n Moles
+         * @param {number} T Temperature (K)
+         * @param {number} a VDW constant 'a'
+         * @param {number} b VDW constant 'b'
+         * @returns {{idealData: Array<{x: number, y: number}>, realData: Array<{x: number, y: number}>}} Plot data
+         */
+        function generatePlotData(n, T, a, b) {
+            const idealData = [];
+            const realData = [];
+            
+            // Determine minimum volume (must be > n*b)
+            const V_min_theoretical = n * b;
+            const V_min = V_min_theoretical * 1.05; // Start 5% above the theoretical minimum
+            
+            // Determine maximum volume for the range (e.g., up to 100 times the minimum VDW volume)
+            const V_max = V_min_theoretical * 100;
+            
+            // Number of steps for a smooth curve
+            const steps = 100;
+            
+            for (let i = 0; i <= steps; i++) {
+                // Use a logarithmic scale for volume iteration to better sample high and low pressures
+                const logV = Math.log(V_min) + (Math.log(V_max) - Math.log(V_min)) * (i / steps);
+                const V = Math.exp(logV);
+
+                // 1. Calculate Real Gas Pressure and Z
+                const P_real = calculateRealPressure(n, T, V, a, b);
+                
+                // Only plot positive pressures
+                if (P_real > 0.001) {
+                    const Z_real = (P_real * V) / (n * R * T);
+                    realData.push({ x: P_real, y: Z_real });
+                }
+
+                // 2. Ideal Gas (Z is always 1)
+                const P_ideal = calculateIdealPressure(n, T, V);
+                if (P_ideal > 0.001) {
+                    idealData.push({ x: P_ideal, y: 1.0 });
+                }
+            }
+
+            // Sort by Pressure (X-axis) for proper line rendering
+            realData.sort((a, b) => a.x - b.x);
+            
+            // The ideal gas line only needs two points (min/max pressure from real gas)
+            const minP = realData.length > 0 ? realData[0].x : 0;
+            const maxP = realData.length > 0 ? realData[realData.length - 1].x : 100;
+
+            const idealPlotData = [
+                { x: minP, y: 1.0 },
+                { x: maxP, y: 1.0 }
+            ];
+
+            return { idealData: idealPlotData, realData };
+        }
+
+        /**
+         * Initializes or updates the Chart.js plot.
+         * @param {Array<object>} idealData Data points for ideal gas
+         * @param {Array<object>} realData Data points for real gas
+         */
+        function updateChart(idealData, realData) {
+            const ctx = document.getElementById('compressibilityChart').getContext('2d');
+
+            if (compressibilityChart) {
+                // Update existing chart
+                compressibilityChart.data.datasets[0].data = idealData;
+                compressibilityChart.data.datasets[1].data = realData;
+                
+                // Get the maximum pressure from the real data to set the axis limit
+                const maxPressure = realData.reduce((max, point) => Math.max(max, point.x), 0);
+                compressibilityChart.options.scales.x.max = maxPressure * 1.05;
+                
+                compressibilityChart.update('none'); // 'none' prevents animation on update
+            } else {
+                // Initialize new chart
+                compressibilityChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [
+                            {
+                                label: 'Ideal Gas (Z=1)',
+                                data: idealData,
+                                borderColor: '#10B981', // Green-500
+                                borderWidth: 3,
+                                fill: false,
+                                pointRadius: 0,
+                                tension: 0.1,
+                                borderDash: [5, 5]
+                            },
+                            {
+                                label: 'Van der Waals (Real Gas)',
+                                data: realData,
+                                borderColor: '#EF4444', // Red-500
+                                borderWidth: 3,
+                                fill: false,
+                                pointRadius: 0,
+                                tension: 0.2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                position: 'bottom',
+                                title: {
+                                    display: true,
+                                    text: 'Pressure (P) [atm]',
+                                    font: { size: 14, weight: 'bold' }
+                                },
+                                min: 0,
+                                max: realData.reduce((max, point) => Math.max(max, point.x), 0) * 1.05,
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Compressibility Factor (Z = PV/nRT)',
+                                    font: { size: 14, weight: 'bold' }
+                                },
+                                min: 0.5, // Start slightly lower than 1 for better visual range
+                                max: 2.5 // Allows viewing typical deviation
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    title: (tooltipItems) => `P: {tooltipItems[0].parsed.x.toFixed(2)} atm`,
+                                    label: (context) => `{context.dataset.label}: Z = {context.parsed.y.toFixed(4)}`
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        /**
+         * Main function to read inputs, calculate pressures, and update the chart.
+         */
+        window.runSimulation = function() {
+            const n = parseFloat(document.getElementById('n').value);
+            const T = parseFloat(document.getElementById('T').value);
+            const V = parseFloat(document.getElementById('V').value);
+            const a = parseFloat(document.getElementById('a').value);
+            const b = parseFloat(document.getElementById('b').value);
+
+            const errorElement = document.getElementById('error-message');
+            errorElement.classList.add('hidden');
+            
+            // Simple Input Validation
+            if (isNaN(n) || isNaN(T) || isNaN(V) || isNaN(a) || isNaN(b) || n <= 0 || T <= 0 || V <= 0 || b < 0 || a < 0) {
+                errorElement.textContent = "Please ensure all inputs are valid positive numbers.";
+                errorElement.classList.remove('hidden');
+                document.getElementById('p-ideal').textContent = "--";
+                document.getElementById('p-real').textContent = "--";
+                return;
+            }
+
+            // Van der Waals specific check: V must be greater than n*b
+            if (V <= n * b) {
+                errorElement.textContent = `Physical limit violated: Volume (V) must be greater than n \cdot b ({(n*b).toFixed(3)} L). Real gas pressure is undefined or negative.`;
+                errorElement.classList.remove('hidden');
+                document.getElementById('p-ideal').textContent = calculateIdealPressure(n, T, V).toFixed(3);
+                document.getElementById('p-real').textContent = "ERROR";
+                return;
+            }
+
+            // 1. Calculate and Display Pressures
+            const P_ideal = calculateIdealPressure(n, T, V);
+            const P_real = calculateRealPressure(n, T, V, a, b);
+
+            document.getElementById('p-ideal').textContent = P_ideal.toFixed(3);
+            document.getElementById('p-real').textContent = P_real.toFixed(3);
+            
+            // 2. Generate and Display Plot
+            try {
+                const { idealData, realData } = generatePlotData(n, T, a, b);
+                updateChart(idealData, realData);
+            } catch (e) {
+                console.error("Error generating plot data:", e);
+                errorElement.textContent = "An error occurred during plot generation. Check console for details.";
+                errorElement.classList.remove('hidden');
+            }
+        }
+
+        // Run the simulation once on load to initialize the chart with default values
+        window.onload = function() {
+            runSimulation();
+        };
+
+    </script>
+</body>
+</html>
